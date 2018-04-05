@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <stdlib.h>
 #include <sys/wait.h>
+#include <vector>
 
 using namespace std;
 
@@ -17,7 +18,7 @@ string replaceHome(string cwd);
 bool commandAnalyse(string command);
 void signal_handler(int sig);
 list<string> tokenize(string str);
-string getCommandName(string str);
+string getCommandName(list<string>);
 bool knownCommand(string command);
 
 string eval_word(string word);
@@ -124,7 +125,8 @@ string eval_path(string path)
 // Analysing every command string. This function should be called recursively on every new command string
 bool commandAnalyse(string str)
 {
-    string cmd = getCommandName(str);
+    list<string> tokens = tokenize(str);
+    string cmd = getCommandName(tokens);
    
     /*if (!knownCommand(cmd))
     {
@@ -139,7 +141,6 @@ bool commandAnalyse(string str)
     else if (cmd=="") { }
     else if (cmd == "cd")
     {
-        list<string> tokens = tokenize(str);
         list<string>::iterator it = tokens.begin();
         if(tokens.size() == 1) 
         {
@@ -165,29 +166,46 @@ bool commandAnalyse(string str)
     }
     else
     {
+        // Here we begin to fork on every new command
         pid_t kidpid = fork();
         if (kidpid == 0)
         {
-            char *args[2];
-            string arg = "-la";
-            args[0] = (char*)arg.c_str();
-            args[1] = NULL;
-            execvp("ls", args);
+            // This is the child
+            list<string>::iterator it = tokens.begin();
+            char** args = new char*[tokens.size() + 1];
+            for (unsigned int i = 0; i < tokens.size(); i++)
+            {
+                string word = eval_word((string)*it);
+                args[i] = (char*)word.c_str();
+                advance(it,1);
+            }
+            cout << *(args[1])<<endl;
+            args[tokens.size()] = NULL;
+            execvp(cmd.c_str(), args);
+            perror(str.c_str());
+            return -1;
         }
         else if (kidpid > 0)
         {
+            // This is the parent
             if (waitpid(kidpid, 0, 0) < 0)
             {
+                perror("Error");
+                return -1;
             }
+        }
+        else 
+        {
+            perror("Error2");
+            return -1;
         }
     }
     return true;
 }
 
 // Receives a string of user input and returns it's first value which is the command name
-string getCommandName(string str)
+string getCommandName(list<string> tokens)
 {
-    list<string> tokens = tokenize(str);
     list<string>::iterator it = tokens.begin();
     if (tokens.size() == 0) return "";
     return eval_word(string(*it));
@@ -219,7 +237,7 @@ list<string> tokenize(string str)
         }
         else newstr += str[i];
     }
-    if (newstr != "" && newstr != " ") tokens.push_back(newstr);
+    if (newstr != "") tokens.push_back(newstr);
 
     return tokens;
 }
