@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 #include <string>
+#include <string.h>
 #include <signal.h>
 #include <list>
 #include <algorithm>
@@ -23,7 +24,6 @@ bool knownCommand(string command);
 
 string eval_word(string word);
 string eval_dollar(string, unsigned int&);
-string eval_path(string);
 
 int main()
 {
@@ -55,9 +55,17 @@ int main()
 
 // Evaluate a single word (and path) and eliminate environment variables. 
 // Send only one word each use!!
-string eval_word(string word)
+string eval_word(string str)
 {
+    string word = "";
     string to_return = "";
+
+    if (str[0] == '~')
+    {
+        word += (getpwuid(getuid()))->pw_dir;
+        word += str.substr(1, str.size());
+    }
+    else word = str;
 
     for (unsigned int i = 0; i < word.size(); i++)
     {
@@ -82,9 +90,9 @@ string eval_dollar(string word, unsigned int &index)
 
     for (unsigned int i = 0; i < word.size(); i++)
     {
-        if (word[i] == '$')
+        if (word[i] == '$' || word[i] == '/')
         {
-            if (env_var[0] == '\0') return "$";
+            if (env_var[0] == '\0') return string(1, word[i]);
             else
             {
                 index += env_var.size();
@@ -107,32 +115,12 @@ string eval_dollar(string word, unsigned int &index)
     }
 }
 
-// Send every path here to evaluate it and replace all variables (if exist)
-// and replace home directory with ~ if necessary
-string eval_path(string path)
-{
-    string to_return = "";
-    if (path[0] == '~') 
-    {
-        to_return += (getpwuid(getuid()))->pw_dir;
-        to_return += eval_word(path.substr(1, path.size()));
-    }
-    else to_return += eval_word(path);
-
-    return to_return;
-}
-
 // Analysing every command string. This function should be called recursively on every new command string
 bool commandAnalyse(string str)
 {
     list<string> tokens = tokenize(str);
     string cmd = getCommandName(tokens);
-   
-    /*if (!knownCommand(cmd))
-    {
-        exit_status = 127;
-        cout << cmd << ": No such command" << endl;
-    }*/
+    
     if (cmd == "exit")
     {
         cout << "You chose to quit shell, good day" << endl;
@@ -150,7 +138,8 @@ bool commandAnalyse(string str)
         else if (tokens.size() == 2)
         {
             advance(it,1);
-            string path = eval_path(*it);
+            //string path = eval_path(*it);
+            string path = eval_word(*it);
             exit_status = chdir(path.c_str());
             if (exit_status != 0)
             {
@@ -173,14 +162,16 @@ bool commandAnalyse(string str)
             // This is the child
             list<string>::iterator it = tokens.begin();
             char** args = new char*[tokens.size() + 1];
+            string word;
             for (unsigned int i = 0; i < tokens.size(); i++)
             {
-                string word = eval_word((string)*it);
-                args[i] = (char*)word.c_str();
+                word = eval_word((string)*it);
+                args[i]=new char[word.size()+1];
+                strcpy(args[i],(char*)word.c_str());
                 advance(it,1);
             }
-            cout << *(args[1])<<endl;
             args[tokens.size()] = NULL;
+            
             execvp(cmd.c_str(), args);
             perror(str.c_str());
             return -1;
