@@ -33,7 +33,6 @@ int main()
         
         if (cin.eof())
         {
-            cout << "Reached End of File. Quitting" << endl;
             return 0;
         }
         string cwd = getcwd(NULL, 0);
@@ -155,41 +154,61 @@ bool commandAnalyse(string str)
     }
     else
     {
-        // Here we begin to fork on every new command
-        pid_t kidpid = fork();
-        if (kidpid == 0)
+        list<string>::iterator it = tokens.begin();
+        char** args = new char*[tokens.size() + 1];
+        string word;
+        for (unsigned int i = 0; i < tokens.size(); i++)
         {
-            // This is the child
-            list<string>::iterator it = tokens.begin();
-            char** args = new char*[tokens.size() + 1];
-            string word;
-            for (unsigned int i = 0; i < tokens.size(); i++)
-            {
-                word = eval_word((string)*it);
-                args[i]=new char[word.size()+1];
-                strcpy(args[i],(char*)word.c_str());
-                advance(it,1);
-            }
-            args[tokens.size()] = NULL;
-            
-            execvp(cmd.c_str(), args);
-            perror(str.c_str());
-            return -1;
+            word = eval_word((string)*it);
+            args[i]=new char[word.size()+1];
+            strcpy(args[i],(char*)word.c_str());
+            advance(it,1);
         }
-        else if (kidpid > 0)
-        {
-            // This is the parent
-            if (waitpid(kidpid, 0, 0) < 0)
-            {
-                perror("Error");
-                return -1;
-            }
+        args[tokens.size()] = NULL;
+        
+        int i=tokens.size();
+        int flag=0;
+        if (strcmp(args[i-1],"&")==0) {
+            flag = 1;
+            args[i-1] = NULL;
         }
+        int pid = fork(); //forking the process
+        if (pid<0) {
+            perror("fork");
+            exit(1);
+        }
+        //child process
+        if (pid==0)
+        { 
+            if(execvp(cmd.c_str(), args) < 0)//executing, if there is an error exiting with killing the child process
+            {
+                    perror("executing error");
+                    exit_status=127;
+                    cout<<"exit_status= "<<exit_status<<endl;
+            }      
+        }
+        //parent process  
         else 
         {
-            perror("Error2");
-            return -1;
+            exit_status=0;
+            if (flag==0) // if not zombie
+            { 
+                if (waitpid(pid, &exit_status,0)==-1){perror("waitError");} //reaping zombies, wait for the child to end
+                //zpid = waitpid(-1, &exit_status,0);
+            }
+            else 
+            { //if zoombie
+                cout << "[" << pid << "]" << endl;
+            }
         }
+        pid = waitpid(-1, &exit_status, WNOHANG);
+
+		if (pid > 0)
+        {
+            exit_status = WTERMSIG(exit_status) + 128;
+			cout << '[' << pid << "] : exited, status=" << exit_status << endl;
+        }
+		
     }
     return true;
 }
