@@ -5,6 +5,14 @@
 #include <sys/shm.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
+#include <unistd.h>
+#include <time.h>
+#include <ctime>
+#include <stdlib.h>
+#include <cstdlib>
+#include <random>
+#include <cmath>
+#include <stdio.h>
 
 using namespace std;
 
@@ -24,14 +32,24 @@ typedef struct Order
     bool done = true;
 } Order;
 
+typedef struct Utils
+{
+    double start_time;
+    int total_time;
+    int menu_items_amount;
+} Utils;
+
 #define MENUSIZE sizeof(struct MenuItem)
 #define ORDERSIZE sizeof(struct Order)
 
 bool checkArguments(int, int, int, int);
 void printMenu(MenuItem*, int);
+double getRuntime();
+float getRandom(float, float);
 
 int main(int args_size, char *args[])
 {
+    system("./clean.sh");
 
     if (args_size != 5) 
     {
@@ -64,33 +82,70 @@ int main(int args_size, char *args[])
 
     // Key of the menu
     key_t menu_key = ftok(".", 'M');
-    int shmid;
-    char *shm;
+    int shmid_menu;
     MenuItem *shm_menu;
     
-    if (shmid = shmget(menu_key, MENUSIZE * 100, 0666) < 0)
-    {
-        perror("shmget");
-		exit(1);
-    }
-    if ((shm = (char *)shmat(shmid, NULL, 0)) == (char *)-1)
-    {
-        perror("shmat");
-		exit(1);
-    }
-    shm_menu = (MenuItem*)shm;
+    shmid_menu = shmget(menu_key, MENUSIZE * menu_items_amount, IPC_CREAT|0666);
+    shm_menu = (MenuItem *)shmat(shmid_menu, 0, 0);
     for (int i=0; i<menu_items_amount; i++)
     {
-        *shm_menu++ = items[i];
+        shm_menu[i] = items[i];
     }
-    shm_menu = (MenuItem*)shm;
     printMenu(shm_menu, menu_items_amount);
+
+    // Key of Utils
+    key_t utils_key = ftok(".", 'U');
+    int shmid_utils;
+    Utils *shm_utils;
+    struct timespec begin;
+
+    shmid_utils = shmget(utils_key, sizeof(struct Utils), IPC_CREAT|0666);
+    shm_utils = (Utils *)shmat(shmid_utils, 0, 0);
+    clock_gettime(CLOCK_MONOTONIC, &begin);
+    (*shm_utils).start_time = begin.tv_sec;
+    (*shm_utils).total_time = simulation_time;
 
     // Key of the orders
     key_t order_key = ftok(".", 'O');
-    
+    int shmid_order;
+    Order *shm_order;
 
+    shmid_order = shmget(menu_key, ORDERSIZE * 100, IPC_CREAT|0666);
+    shm_order = (Order *)shmat(shmid_order, 0, 0);
+    pid_t childpid_cust;
+    for (int i=0; i< 20; i++)
+    {   
+        childpid_cust = fork();
+        if (childpid_cust == 0)
+        {
+            sleep(getRandom(3,6));
+            cout << getRuntime() << " --- I am a child. PPID: " << getppid() << " PID: " << getpid() << endl;
+            return 0;
+        }
+    }
+    
     return 0;
+}
+
+float getRandom(float low, float high)
+{
+    random_device r;
+    default_random_engine e1(r());
+    uniform_real_distribution<float> distribution(low, high);
+    return distribution(e1);
+}
+
+double getRuntime()
+{
+    key_t utils_key = ftok(".", 'U');
+    int shmid_utils;
+    Utils *shm_utils;
+    struct timespec current;
+
+    shmid_utils = shmget(utils_key, sizeof(struct Utils), IPC_CREAT|0666);
+    shm_utils = (Utils *)shmat(shmid_utils, 0, 0);
+    clock_gettime(CLOCK_MONOTONIC, &current);
+    return current.tv_sec - (*shm_utils).start_time;
 }
 
 bool checkArguments(int sim, int menu_items, int cust, int waiters)
