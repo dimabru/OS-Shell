@@ -215,10 +215,6 @@ int main(int args_size, char *args[])
 	printf( "%6.3f End of simulation\n", getRuntime(start_time) );
     
 
-	shmdt(shm_menu);
-	shmdt(shm_order);
-    sem_destroy (semForOrders);
-
     return 0;
 }
 
