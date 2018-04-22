@@ -139,7 +139,7 @@ int main(int args_size, char *args[])
 
             while(getRuntime(start_time)<simulation_time) //while simulation time is greater work time
             {
-                sleep(getRandom(3,6));  //random sllep
+                usleep(getRandom(3,6)*1000000.f);  //random sllep
 
                 // sleep(1);
                 if(shm_order[i].done == true) //if last order is done
@@ -237,8 +237,8 @@ float getRuntime(struct timeval start)
 {
     struct timeval now_time;
 	gettimeofday(&now_time, NULL);
-	float diff = (now_time.tv_sec - start.tv_sec) * 1000.0f + (now_time.tv_usec - start.tv_usec) / 1000.0f;
-	return diff / 1000.0f;
+	float diff = (now_time.tv_sec - start.tv_sec) * 1000.0f + (now_time.tv_usec - start.tv_usec) / 1000.f;
+	return diff / 1000.f;
 
 }
 
