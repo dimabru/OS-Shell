@@ -16,7 +16,12 @@
 #include <semaphore.h>
 #include <fcntl.h>
 #include <sys/wait.h>
-
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/ipc.h>
+#include <sys/shm.h>
 using namespace std;
 
 typedef struct MenuItem
@@ -47,7 +52,6 @@ float getRandom(float, float);
 
 int main(int args_size, char *args[])
 {
-    // int t= system("./clean.sh");
     int status=0;
     if (args_size != 5) 
     {
@@ -213,7 +217,10 @@ int main(int args_size, char *args[])
     totalOrders(shm_menu, menu_items_amount);
     printf( "%6.3f Main ID %d end work\n", getRuntime(start_time), getpid() );
 	printf( "%6.3f End of simulation\n", getRuntime(start_time) );
-
+    
+    shmctl(shmid_menu, IPC_RMID, 0);
+    shmctl(shmid_order, IPC_RMID, 0);
+    sem_destroy (semForOrders);
     return 0;
 }
 
