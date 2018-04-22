@@ -213,7 +213,6 @@ int main(int args_size, char *args[])
     totalOrders(shm_menu, menu_items_amount);
     printf( "%6.3f Main ID %d end work\n", getRuntime(start_time), getpid() );
 	printf( "%6.3f End of simulation\n", getRuntime(start_time) );
-    
 
     return 0;
 }
