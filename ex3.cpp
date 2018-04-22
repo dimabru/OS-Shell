@@ -187,7 +187,7 @@ int main(int args_size, char *args[])
 
             while(getRuntime(start_time)<simulation_time) //while simulation time is greater work time
             {
-                sleep(1);
+                usleep(getRandom(1,2)*1000000.f);
 
                 sem_wait(semForOrders);
             
