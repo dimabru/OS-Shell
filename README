@@ -1,2 +1,3 @@
+#if you not cleaned a shared memory from another program please run ./clean.sh
 Dima Brusilovsky 313026221 
 Andrey Fiodorov 326952298
